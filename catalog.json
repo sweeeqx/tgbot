@@ -1,0 +1,46 @@
+{
+    "Жидкости": {
+        "MAD & САМОУБИЙЦА V2": {
+            "4df0fe95": {
+                "name": "MAD & САМОУБИЙЦА V2",
+                "description": "70 mg strong\n\n❄️Холодная ежевика\n🧊Садовая смородина лед\n🍉Морозный арбуз\n🥤Малиновая газировка\n🍓Малиновая грейпфрут \n🍏Черешня яблоко\n⚡️Энергетик ананас \n\n\n📋 Для оформления заказа: @sweeeqx",
+                "price": "450",
+                "photo": "AgACAgIAAxkBAAIBIGmVx2Rzvz73gF-WAs8Bq515yhkFAAIfF2sbZWCwSHdtquDS7TxTAQADAgADeAADOgQ"
+            }
+        },
+        "ЗЛАЯ МОНАШКА ICE": {
+            "0b4f6263": {
+                "name": "ЗЛАЯ МОНАШКА ICE",
+                "description": "70 mg strong\n\n🫐Лесные ягоды\n🧊Малина лед\n🫐Черника лед\n🍓Земляника лед\n🍓Клубника арбуз лед\n🍒Малина ежевика лед\n🍇Фруктовый лед\n⚡️Энергетик ежевика лед\n🍏Яблоко лед\n🍍Ананас гранат лед\n\n\n\n📋 Для оформления заказа: @sweeeqx",
+                "price": "450",
+                "photo": "AgACAgIAAxkBAAIBf2mV0TwB9FFTqwsAAYPG7zil86NsGAACghdrG2VgsEg8zKaDw3Gu1wEAAwIAA3gAAzoE"
+            }
+        },
+        "РИК И МОРТИ": {
+            "ae86ce56": {
+                "name": "РИК И МОРТИ НА ЗАМЕРЗОНЕ КИСЛЫЕ",
+                "description": "20 mg medium\n\n🍇Кислая виноградная фанта\n🥝Кислая клубника киви \n🌸Бабл гам\n🍒Вишневый лимонад\n🫐Голубика малина мармелад\n🍇Красный виноград\n🍌Кислая фруктовая жвачка\n🍓Лесные ягоды\n🍓Малиновая шипучка\n🍏Яблочные леденцы\n\n\n📋 Для оформления заказа: @sweeeqx",
+                "price": "400",
+                "photo": "AgACAgIAAxkBAAIBjGmV0ZKm8l4h8tX9mW4Gm_46cW7nAAKFF2sbZWCwSNUGkJFmhG_oAQADAgADeAADOgQ"
+            }
+        }
+    },
+    "ПОД-СИСТЕМЫ": {
+        "VAPORESSO XROS 5 MINI": {
+            "fd3fe732": {
+                "name": "VAPORESSO XROS 5 MINI LEATHER EDITION",
+                "description": "🌸Retro pink leather \n🟠Retro orange leather\n \n\n📋 Для оформления заказа: @sweeeqx",
+                "price": "1600",
+                "photo": "AgACAgIAAxkBAAIBmWmV0idTLU8ns50VAAEgpcrNd8yGOwACjhdrG2VgsEjmCssceIhdagEAAwIAA20AAzoE"
+            }
+        },
+        "VAPORESSO XROS 5": {
+            "a69e875c": {
+                "name": "VAPORESSO XROS 5",
+                "description": "⚫️Black leather \n🟢Jade green\n \n\n📋 Для оформления заказа: @sweeeqx",
+                "price": "2000",
+                "photo": "AgACAgIAAxkBAAIBz2mbKLhJvVtazwoe5YQ5-Srh4Kx8AALwFWsbv-3YSFE03pgOhyUoAQADAgADeAADOgQ"
+            }
+        }
+    }
+}
