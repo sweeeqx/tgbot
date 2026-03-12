@@ -14,11 +14,13 @@ from aiogram.client.default import DefaultBotProperties
 # =======================
 # НАСТРОЙКИ
 # =======================
-TOKEN = "8563043264:AAFgqebPqB_OFtksfOD3AKqdPrQBqEksIpM"  # вставь сюда токен
-ADMIN_ID = 1140430618      # твой Telegram ID
+TOKEN = "8563043264:AAFgqebPqB_OFtksfOD3AKqdPrQBqEksIpM"
+ADMIN_ID = 1140430618
 MANAGER_USERNAME = "@sweeeqx"
 CHANNEL_LINK = "https://t.me/+hB6FqQfllpQ4MDMx"
+
 CATALOG_FILE = "catalog.json"
+USERS_FILE = "users.json"
 
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher(storage=MemoryStorage())
@@ -38,13 +40,18 @@ class EditProduct(StatesGroup):
     field = State()
     product_id = State()
 
+class NewsState(StatesGroup):
+    photo = State()
+    text = State()
+
 # =======================
-# ФАЙЛ КАТАЛОГА
+# ФАЙЛЫ
 # =======================
 def load_catalog():
-    if not os.path.exists(CATALOG_FILE) or os.path.getsize(CATALOG_FILE) == 0:
+    if not os.path.exists(CATALOG_FILE):
         with open(CATALOG_FILE, "w", encoding="utf-8") as f:
             json.dump({}, f)
+
     with open(CATALOG_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -52,8 +59,20 @@ def save_catalog(data):
     with open(CATALOG_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "w") as f:
+            json.dump([], f)
+
+    with open(USERS_FILE, "r") as f:
+        return json.load(f)
+
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f)
+
 # =======================
-# КЛАВИАТУРЫ
+# КНОПКИ
 # =======================
 def main_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -66,20 +85,30 @@ def main_menu():
         ]
     ])
 
-def back_button(callback):
+def back_button(cb):
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=callback)]
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=cb)]
     ])
 
 # =======================
-# СТАРТ
+# START
 # =======================
 @dp.message(Command("start"))
 async def start(message: Message):
-    await message.answer("🔥 <b>Добро пожаловать!</b>\nВыберите раздел:", reply_markup=main_menu())
+
+    users = load_users()
+
+    if message.from_user.id not in users:
+        users.append(message.from_user.id)
+        save_users(users)
+
+    await message.answer(
+        "🔥 <b>Добро пожаловать!</b>\nВыберите раздел:",
+        reply_markup=main_menu()
+    )
 
 # =======================
-# ГЛАВНОЕ МЕНЮ
+# МЕНЮ
 # =======================
 @dp.callback_query(F.data == "back_main")
 async def back_main(call: CallbackQuery):
@@ -89,7 +118,10 @@ async def back_main(call: CallbackQuery):
 @dp.callback_query(F.data == "manager")
 async def manager(call: CallbackQuery):
     await call.answer()
-    await call.message.edit_text(f"👤 Менеджер: {MANAGER_USERNAME}", reply_markup=back_button("back_main"))
+    await call.message.edit_text(
+        f"👤 Менеджер: {MANAGER_USERNAME}",
+        reply_markup=back_button("back_main")
+    )
 
 # =======================
 # КАТЕГОРИИ
@@ -97,221 +129,268 @@ async def manager(call: CallbackQuery):
 @dp.callback_query(F.data == "assortment")
 async def show_categories(call: CallbackQuery):
     await call.answer()
+
     catalog = load_catalog()
+
     if not catalog:
-        await call.message.edit_text("❌ Каталог пуст.", reply_markup=back_button("back_main"))
+        await call.message.edit_text("❌ Каталог пуст", reply_markup=back_button("back_main"))
         return
-    buttons = [[InlineKeyboardButton(text=f"📦 {cat}", callback_data=f"cat|{cat}")] for cat in catalog]
+
+    buttons = []
+
+    for cat in catalog:
+        buttons.append([InlineKeyboardButton(text=f"📦 {cat}", callback_data=f"cat|{cat}")])
+
     buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_main")])
-    await call.message.edit_text("🛍 <b>Категории:</b>", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+
+    await call.message.edit_text(
+        "🛍 <b>Категории</b>",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+    )
 
 @dp.callback_query(F.data.startswith("cat|"))
 async def show_brands(call: CallbackQuery):
     await call.answer()
+
     category = call.data.split("|")[1]
     catalog = load_catalog()
+
     brands = catalog.get(category, {})
+
     if not brands:
-        await call.message.answer("❌ В этой категории нет брендов.")
+        await call.message.answer("❌ Нет брендов")
         return
-    buttons = [[InlineKeyboardButton(text=f"🏷 {b}", callback_data=f"brand|{category}|{b}")] for b in brands]
+
+    buttons = []
+
+    for b in brands:
+        buttons.append([InlineKeyboardButton(text=f"🏷 {b}", callback_data=f"brand|{category}|{b}")])
+
     buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="assortment")])
-    await call.message.edit_text(f"📦 <b>{category}</b>\nВыберите бренд:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+
+    await call.message.edit_text(
+        f"📦 <b>{category}</b>\nВыберите бренд",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+    )
 
 # =======================
 # ТОВАРЫ
 # =======================
 @dp.callback_query(F.data.startswith("brand|"))
 async def show_products(call: CallbackQuery):
+
     await call.answer()
+
     _, category, brand = call.data.split("|")
+
     catalog = load_catalog()
+
     products = catalog.get(category, {}).get(brand, {})
 
     if not products:
-        await call.message.answer("❌ Товаров нет.")
+        await call.message.answer("❌ Товаров нет")
         return
 
     for pid, item in products.items():
-        name = item.get("name", "Без названия")
-        desc = item.get("description", "Описание отсутствует")
-        price = item.get("price", "Цена не указана")
-        photo = item.get("photo", None)
 
-        if photo:
-            await call.message.answer_photo(
-                photo=photo,
-                caption=f"🔥 <b>{name}</b>\n\n{desc}\n💰 Цена: {price} ₽"
-            )
-        else:
-            await call.message.answer(f"🔥 <b>{name}</b>\n\n{desc}\n💰 Цена: {price} ₽")
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🛒 Купить", url=f"https://t.me/{MANAGER_USERNAME.replace('@','')}")]
+            ]
+        )
+
+        await call.message.answer_photo(
+            photo=item["photo"],
+            caption=f"🔥 <b>{item['name']}</b>\n\n{item['description']}\n💰 Цена: {item['price']} ₽",
+            reply_markup=keyboard
+        )
 
     await call.message.answer("⬅️ Назад", reply_markup=back_button(f"cat|{category}"))
 
 # =======================
-# АДМИНКА
+# АДМИН
 # =======================
 @dp.message(Command("admin"))
 async def admin_panel(message: Message):
+
     if message.from_user.id != ADMIN_ID:
         return
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Добавить товар", callback_data="add_product")],
         [InlineKeyboardButton(text="✏️ Редактировать товар", callback_data="edit_product")],
         [InlineKeyboardButton(text="❌ Удалить товар", callback_data="delete_product")]
     ])
+
     await message.answer("⚙️ Админ панель", reply_markup=keyboard)
 
 # =======================
-# ДОБАВЛЕНИЕ
+# ДОБАВЛЕНИЕ ТОВАРА
 # =======================
 @dp.callback_query(F.data == "add_product")
 async def add_start(call: CallbackQuery, state: FSMContext):
+
     await call.answer()
+
     await state.set_state(AddProduct.category)
-    await call.message.answer("Введите категорию:")
+
+    await call.message.answer("Введите категорию")
 
 @dp.message(AddProduct.category)
 async def add_category(message: Message, state: FSMContext):
+
     await state.update_data(category=message.text)
+
     await state.set_state(AddProduct.brand)
-    await message.answer("Введите бренд:")
+
+    await message.answer("Введите бренд")
 
 @dp.message(AddProduct.brand)
 async def add_brand(message: Message, state: FSMContext):
+
     await state.update_data(brand=message.text)
+
     await state.set_state(AddProduct.name)
-    await message.answer("Введите название товара:")
+
+    await message.answer("Введите название товара")
 
 @dp.message(AddProduct.name)
 async def add_name(message: Message, state: FSMContext):
+
     await state.update_data(name=message.text)
+
     await state.set_state(AddProduct.description)
-    await message.answer("Введите описание товара:")
+
+    await message.answer("Введите описание")
 
 @dp.message(AddProduct.description)
-async def add_description(message: Message, state: FSMContext):
+async def add_desc(message: Message, state: FSMContext):
+
     await state.update_data(description=message.text)
+
     await state.set_state(AddProduct.price)
-    await message.answer("Введите цену:")
+
+    await message.answer("Введите цену")
 
 @dp.message(AddProduct.price)
 async def add_price(message: Message, state: FSMContext):
+
     await state.update_data(price=message.text)
+
     await state.set_state(AddProduct.photo)
-    await message.answer("Отправьте фото товара:")
+
+    await message.answer("Отправьте фото")
 
 @dp.message(AddProduct.photo)
 async def add_photo(message: Message, state: FSMContext):
-    data = await state.get_data()
-    catalog = load_catalog()
-    category = data["category"]
-    brand = data["brand"]
-    name = data["name"]
-    product_id = str(uuid.uuid4())[:8]  # короткий ID
 
-    catalog.setdefault(category, {}).setdefault(brand, {})[product_id] = {
-        "name": name,
+    data = await state.get_data()
+
+    catalog = load_catalog()
+
+    pid = str(uuid.uuid4())[:8]
+
+    catalog.setdefault(data["category"], {}).setdefault(data["brand"], {})[pid] = {
+        "name": data["name"],
         "description": data["description"],
         "price": data["price"],
         "photo": message.photo[-1].file_id
     }
 
     save_catalog(catalog)
-    await message.answer("✅ Товар добавлен!")
+
+    await message.answer("✅ Товар добавлен")
     await state.clear()
 
 # =======================
-# УДАЛЕНИЕ
+# НОВОСТИ
 # =======================
-@dp.callback_query(F.data == "delete_product")
-async def delete_product(call: CallbackQuery):
-    await call.answer()
-    catalog = load_catalog()
-    buttons = []
-    for c in catalog:
-        for b in catalog[c]:
-            for pid, p in catalog[c][b].items():
-                buttons.append([InlineKeyboardButton(text=f"❌ {p.get('name','Без названия')}", callback_data=f"del|{pid}")])
-    if not buttons:
-        await call.message.answer("❌ Товаров нет.")
+@dp.message(Command("news"))
+async def create_news(message: Message, state: FSMContext):
+
+    if message.from_user.id != ADMIN_ID:
         return
-    await call.message.answer("Выберите товар для удаления:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
-@dp.callback_query(F.data.startswith("del|"))
-async def confirm_delete(call: CallbackQuery):
-    await call.answer()
-    product_id = call.data.split("|")[1]
-    catalog = load_catalog()
-    for c in list(catalog):
-        for b in list(catalog[c]):
-            if product_id in catalog[c][b]:
-                del catalog[c][b][product_id]
-                if not catalog[c][b]:
-                    del catalog[c][b]
-                if not catalog[c]:
-                    del catalog[c]
-                save_catalog(catalog)
-                await call.message.answer("✅ Товар удалён")
-                return
+    await message.answer("📸 Отправьте фото новости")
 
-# =======================
-# РЕДАКТИРОВАНИЕ
-# =======================
-@dp.callback_query(F.data == "edit_product")
-async def edit_product(call: CallbackQuery, state: FSMContext):
-    await call.answer()
-    catalog = load_catalog()
-    buttons = []
-    for c in catalog:
-        for b in catalog[c]:
-            for pid, p in catalog[c][b].items():
-                buttons.append([InlineKeyboardButton(text=f"✏️ {p.get('name','Без названия')}", callback_data=f"edit|{pid}")])
-    if not buttons:
-        await call.message.answer("❌ Товаров нет.")
-        return
-    await call.message.answer("Выберите товар для редактирования:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await state.set_state(NewsState.photo)
 
-@dp.callback_query(F.data.startswith("edit|"))
-async def choose_edit(call: CallbackQuery, state: FSMContext):
-    await call.answer()
-    product_id = call.data.split("|")[1]
-    await state.update_data(product_id=product_id)
+@dp.message(NewsState.photo)
+async def news_photo(message: Message, state: FSMContext):
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Описание", callback_data="field_desc")],
-        [InlineKeyboardButton(text="Цена", callback_data="field_price")],
-        [InlineKeyboardButton(text="Фото", callback_data="field_photo")]
-    ])
-    await call.message.answer("Что изменить?", reply_markup=keyboard)
-    await state.set_state(EditProduct.field)
+    await state.update_data(photo=message.photo[-1].file_id)
 
-@dp.callback_query(F.data.in_(["field_desc", "field_price", "field_photo"]))
-async def set_field(call: CallbackQuery, state: FSMContext):
-    await call.answer()
-    field_map = {"field_desc": "description", "field_price": "price", "field_photo": "photo"}
-    field = field_map[call.data]
-    await state.update_data(edit_field=field)
-    await call.message.answer("Отправьте новое значение (текст или фото):")
+    await state.set_state(NewsState.text)
 
-@dp.message(EditProduct.field)
-async def save_edit(message: Message, state: FSMContext):
+    await message.answer("Введите текст новости")
+
+@dp.message(NewsState.text)
+async def preview_news(message: Message, state: FSMContext):
+
+    await state.update_data(text=message.text)
+
     data = await state.get_data()
-    catalog = load_catalog()
-    product_id = data["product_id"]
-    field = data["edit_field"]
 
-    for c in catalog:
-        for b in catalog[c]:
-            if product_id in catalog[c][b]:
-                if field == "photo":
-                    catalog[c][b][product_id]["photo"] = message.photo[-1].file_id
-                else:
-                    catalog[c][b][product_id][field] = message.text
-                save_catalog(catalog)
-                await message.answer("✅ Изменения сохранены")
-                await state.clear()
-                return
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🛒 Купить", url=f"https://t.me/{MANAGER_USERNAME.replace('@','')}")],
+            [
+                InlineKeyboardButton(text="✅ Отправить", callback_data="send_news"),
+                InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_news")
+            ]
+        ]
+    )
+
+    await message.answer_photo(
+        photo=data["photo"],
+        caption=f"📰 <b>Предпросмотр новости</b>\n\n{data['text']}",
+        reply_markup=keyboard
+    )
+
+@dp.callback_query(F.data == "send_news")
+async def send_news(call: CallbackQuery, state: FSMContext):
+
+    data = await state.get_data()
+
+    users = load_users()
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🛒 Купить", url=f"https://t.me/{MANAGER_USERNAME.replace('@','')}")]
+        ]
+    )
+
+    for user in users:
+        try:
+            await bot.send_photo(
+                chat_id=user,
+                photo=data["photo"],
+                caption=f"📰 <b>Новость</b>\n\n{data['text']}",
+                reply_markup=keyboard
+            )
+        except:
+            pass
+
+    try:
+        await bot.send_photo(
+            chat_id=CHANNEL_LINK,
+            photo=data["photo"],
+            caption=f"📰 <b>Новость</b>\n\n{data['text']}",
+            reply_markup=keyboard
+        )
+    except:
+        pass
+
+    await call.message.edit_caption("✅ Новость отправлена")
+
+    await state.clear()
+
+@dp.callback_query(F.data == "cancel_news")
+async def cancel_news(call: CallbackQuery, state: FSMContext):
+
+    await state.clear()
+
+    await call.message.edit_caption("❌ Отправка отменена")
 
 # =======================
 # ЗАПУСК
@@ -321,4 +400,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
