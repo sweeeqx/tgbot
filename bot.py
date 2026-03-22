@@ -42,23 +42,7 @@ def load_json(file):
 def save_json(file, data):
     with open(file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
-
-# =======================
-# ПРОВЕРКА ПОДПИСКИ
-# =======================
-async def check_sub(user_id):
-    try:
-        member = await bot.get_chat_member(CHANNEL_ID, user_id)
-        return member.status in ["member", "administrator", "creator"]
-    except:
-        return False
-
-def sub_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📢 Подписаться", url=CHANNEL_LINK)],
-        [InlineKeyboardButton(text="✅ Проверить", callback_data="check_sub")]
-    ])
-
+    
 # =======================
 # FSM
 # =======================
@@ -99,9 +83,11 @@ def back(btn):
 @dp.message(Command("start"))
 async def start(msg: Message):
 
-    if not await check_sub(msg.from_user.id):
-        await msg.answer("❌ Подпишись на канал", reply_markup=sub_keyboard())
-        return
+    users = load_json(USERS_FILE)
+    users[str(msg.from_user.id)] = True
+    save_json(USERS_FILE, users)
+
+    await msg.answer("🔥 Добро пожаловать", reply_markup=main_menu())
 
     users = load_json(USERS_FILE)
     users[str(msg.from_user.id)] = True
@@ -109,21 +95,6 @@ async def start(msg: Message):
 
     await msg.answer("🔥 Добро пожаловать", reply_markup=main_menu())
 
-# =======================
-# ПРОВЕРКА КНОПКА
-# =======================
-@dp.callback_query(F.data == "check_sub")
-async def check_subscription(call: CallbackQuery):
-    await call.answer()
-
-    if await check_sub(call.from_user.id):
-        users = load_json(USERS_FILE)
-        users[str(call.from_user.id)] = True
-        save_json(USERS_FILE, users)
-
-        await call.message.edit_text("✅ Подписка подтверждена", reply_markup=main_menu())
-    else:
-        await call.answer("❌ Ты не подписан", show_alert=True)
 
 # =======================
 # КАТАЛОГ
@@ -131,10 +102,6 @@ async def check_subscription(call: CallbackQuery):
 @dp.callback_query(F.data == "menu_cat")
 async def categories(call: CallbackQuery):
     await call.answer()
-
-    if not await check_sub(call.from_user.id):
-        await call.message.answer("❌ Подпишись", reply_markup=sub_keyboard())
-        return
 
     catalog = load_json(CATALOG_FILE)
 
