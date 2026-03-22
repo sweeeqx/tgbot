@@ -17,8 +17,6 @@ from aiogram.client.default import DefaultBotProperties
 TOKEN = "8563043264:AAFgqebPqB_OFtksfOD3AKqdPrQBqEksIpM"
 ADMIN_ID = 1140430618
 MANAGER = "@sweeeqx"
-
-CHANNEL_ID = "@PARekb2"
 CHANNEL_LINK = "https://t.me/PARekb2"
 
 CATALOG_FILE = "catalog.json"
@@ -28,7 +26,7 @@ bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher(storage=MemoryStorage())
 
 # =======================
-# ФАЙЛЫ
+# JSON
 # =======================
 def load_json(file):
     if not os.path.exists(file):
@@ -42,7 +40,22 @@ def load_json(file):
 def save_json(file, data):
     with open(file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
-    
+
+# =======================
+# UI
+# =======================
+def main_menu():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🛍 Ассортимент", callback_data="menu_cat")],
+        [InlineKeyboardButton(text="👤 Менеджер", url=f"https://t.me/{MANAGER.replace('@','')}")],
+        [InlineKeyboardButton(text="📢 Канал", url=CHANNEL_LINK)]
+    ])
+
+def back(btn):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=btn)]
+    ])
+
 # =======================
 # FSM
 # =======================
@@ -63,41 +76,18 @@ class News(StatesGroup):
     photo = State()
 
 # =======================
-# UI
-# =======================
-def main_menu():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛍 Ассортимент", callback_data="menu_cat")],
-        [InlineKeyboardButton(text="👤 Менеджер", url=f"https://t.me/{MANAGER.replace('@','')}")],
-        [InlineKeyboardButton(text="📢 Канал", url=CHANNEL_LINK)]
-    ])
-
-def back(btn):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=btn)]
-    ])
-
-# =======================
 # START
 # =======================
 @dp.message(Command("start"))
 async def start(msg: Message):
-
     users = load_json(USERS_FILE)
     users[str(msg.from_user.id)] = True
     save_json(USERS_FILE, users)
 
     await msg.answer("🔥 Добро пожаловать", reply_markup=main_menu())
-
-    users = load_json(USERS_FILE)
-    users[str(msg.from_user.id)] = True
-    save_json(USERS_FILE, users)
-
-    await msg.answer("🔥 Добро пожаловать", reply_markup=main_menu())
-
 
 # =======================
-# КАТАЛОГ
+# КАТЕГОРИИ
 # =======================
 @dp.callback_query(F.data == "menu_cat")
 async def categories(call: CallbackQuery):
@@ -106,7 +96,7 @@ async def categories(call: CallbackQuery):
     catalog = load_json(CATALOG_FILE)
 
     if not catalog:
-        await call.message.edit_text("❌ Пусто", reply_markup=back("back_main"))
+        await call.message.edit_text("❌ Каталог пуст", reply_markup=back("back_main"))
         return
 
     kb = [[InlineKeyboardButton(text=c, callback_data=f"cat:{c}")] for c in catalog]
@@ -114,6 +104,14 @@ async def categories(call: CallbackQuery):
 
     await call.message.edit_text("📦 Категории", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
 
+@dp.callback_query(F.data == "back_main")
+async def back_main(call: CallbackQuery):
+    await call.answer()
+    await call.message.edit_text("🏠 Главное меню", reply_markup=main_menu())
+
+# =======================
+# БРЕНДЫ
+# =======================
 @dp.callback_query(F.data.startswith("cat:"))
 async def brands(call: CallbackQuery):
     await call.answer()
@@ -128,6 +126,9 @@ async def brands(call: CallbackQuery):
 
     await call.message.edit_text(f"📦 {cat}", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
 
+# =======================
+# ТОВАРЫ
+# =======================
 @dp.callback_query(F.data.startswith("brand:"))
 async def products(call: CallbackQuery):
     await call.answer()
@@ -135,10 +136,16 @@ async def products(call: CallbackQuery):
 
     catalog = load_json(CATALOG_FILE)
 
-    for pid, item in catalog.get(cat, {}).get(brand, {}).items():
+    items = catalog.get(cat, {}).get(brand, {})
+
+    if not items:
+        await call.message.answer("❌ Нет товаров")
+        return
+
+    for pid, item in items.items():
         await call.message.answer_photo(
-            photo=item["photo"],
-            caption=f"🔥 <b>{item['name']}</b>\n\n{item['desc']}\n💰 {item['price']} ₽",
+            photo=item.get("photo"),
+            caption=f"🔥 <b>{item.get('name')}</b>\n\n{item.get('desc')}\n💰 {item.get('price')} ₽",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🛒 Купить", url=f"https://t.me/{MANAGER.replace('@','')}")]
             ])
@@ -199,7 +206,7 @@ async def add_desc(msg: Message, state: FSMContext):
 async def add_price(msg: Message, state: FSMContext):
     await state.update_data(price=msg.text)
     await state.set_state(Add.photo)
-    await msg.answer("Фото:")
+    await msg.answer("Отправь фото:")
 
 @dp.message(Add.photo)
 async def add_photo(msg: Message, state: FSMContext):
@@ -214,7 +221,7 @@ async def add_photo(msg: Message, state: FSMContext):
     }
 
     save_json(CATALOG_FILE, catalog)
-    await msg.answer("✅ Добавлено")
+    await msg.answer("✅ Товар добавлен")
     await state.clear()
 
 # =======================
@@ -231,7 +238,7 @@ async def delete(call: CallbackQuery):
             for pid, p in catalog[c][b].items():
                 kb.append([InlineKeyboardButton(text=p["name"], callback_data=f"del:{pid}")])
 
-    await call.message.answer("Удалить:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+    await call.message.answer("Выбери товар:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
 
 @dp.callback_query(F.data.startswith("del:"))
 async def delete_item(call: CallbackQuery):
@@ -311,7 +318,7 @@ async def news_start(call: CallbackQuery, state: FSMContext):
 async def news_text(msg: Message, state: FSMContext):
     await state.update_data(text=msg.text)
     await state.set_state(News.photo)
-    await msg.answer("Фото:")
+    await msg.answer("Отправь фото:")
 
 @dp.message(News.photo)
 async def news_send(msg: Message, state: FSMContext):
@@ -326,11 +333,9 @@ async def news_send(msg: Message, state: FSMContext):
                 uid,
                 msg.photo[-1].file_id,
                 caption=data["text"],
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [InlineKeyboardButton(text="🛒 Купить", url=f"https://t.me/{MANAGER.replace('@','')}")]
-                    ]
-                )
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🛒 Купить", url=f"https://t.me/{MANAGER.replace('@','')}")]
+                ])
             )
             sent += 1
         except:
