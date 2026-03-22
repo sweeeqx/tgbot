@@ -18,7 +18,7 @@ TOKEN = "8563043264:AAFgqebPqB_OFtksfOD3AKqdPrQBqEksIpM"
 ADMIN_ID = 1140430618
 MANAGER = "@sweeeqx"
 
-CHANNEL_ID = "@PARekb"
+CHANNEL_ID = "@PARekb2"
 CHANNEL_LINK = "https://t.me/PARekb2"
 
 CATALOG_FILE = "catalog.json"
